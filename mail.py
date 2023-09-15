@@ -2,17 +2,42 @@ from __future__ import print_function
 
 import os.path
 
-
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+import base64
+import pdfkit
+
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
-def main():
+def get_messages(creds):
+    # Modify the code below to get the responses to the email titled
+    # "[URGENT]: Confirm your Enrollment in NUST High Impact Training Program"
+    service = build('gmail', 'v1', credentials=creds)
+    user_id = 'me'
+    subject_query = '[URGENT]: Confirm your Enrollment in NUST High Impact Training Program'
+
+    messages = service.users().messages().list(userId=user_id, q=f'subject:{subject_query}').execute()
+    # print(threads)
+    for message_data in messages['messages']:
+        message = service.users().messages().get(userId=user_id, id=message_data['id']).execute()
+        try:
+            for part in message['payload']['parts']:
+                text = part['body']['data']
+        except:
+            print("No body found")
+            continue
+        html_text = base64.urlsafe_b64decode(text).decode('utf-8')
+        print("HTML Text: ", html_text)
+        pdfkit.from_string(html_text,'GfG.pdf')
+        break
+
+
+def authenticate():
     """Shows basic usage of the Gmail API.
     Lists the user's Gmail labels.
     """
@@ -33,29 +58,10 @@ def main():
         # Save the credentials for the next run
         with open('token.json', 'w') as token:
             token.write(creds.to_json())
+    return creds
 
-    try:
-        # Modify the code below to get the responses to the email titled
-        # "[URGENT]: Confirm your Enrollment in NUST High Impact Training Program"
-        service = build('gmail', 'v1', credentials=creds)
-        thread_id = "18a4bc2bb683a951"
-        threads = service.users().threads().list(userId='me').execute()
-        threads.get('threads', [])
-        for t in threads:
-            print(t)
-        # print(f'Subject: {message_text["subject"]}')
-        # print(f'From: {message_text["from"]}')
-        # print(f'Date: {message_text["date"]}')
-        # print(f'Snippet: {message_text["snippet"]}')
-        # print(f'Body: {message_text["body"]["data"]}')
-
-        if not message_list:
-            print('No messages found.')
-
-    except HttpError as error:
-        # TODO(developer) - Handle errors from gmail API.
-        print(f'An error occurred: {error}')
 
 
 if __name__ == '__main__':
-    main()
+    creds = authenticate()
+    get_messages(creds)
